@@ -154,8 +154,8 @@
             
 
 <div class="post">
-    <a href="/2023/02/14/hello-world/">
-        <h2 class="post-title">Hello World</h2>
+    <a href="/2023/02/14/C++/">
+        <h2 class="post-title">C++</h2>
     </a>
     <div class="category-and-date">
         
@@ -171,20 +171,58 @@
     <div class="description">
         <div class="content" v-pre>
             
-            <p>Welcome to <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a target="_blank" rel="noopener" href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a target="_blank" rel="noopener" href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a target="_blank" rel="noopener" href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><pre><code class="bash">$ hexo new &quot;My New Post&quot;
+            <h1 id="C-11"><a href="#C-11" class="headerlink" title="C++11"></a>C++11</h1><h2 id="一、nullptr"><a href="#一、nullptr" class="headerlink" title="一、nullptr"></a>一、<strong>nullptr</strong></h2><p>nullptr 出现的目的是为了替代 NULL。</p>
+<p>在某种意义上来说，传统 C++ 会把 NULL、0 视为同一种东西，这取决于编译器如何定义 NULL，有些编译器会将 NULL 定义为 ((void*)0)，有些则会直接将其定义为 0。</p>
+<p>C++ 不允许直接将 void * 隐式转换到其他类型，但如果 NULL 被定义为 ((void*)0)，那么当编译char *ch &#x3D; NULL;时，NULL 只好被定义为 0。</p>
+<p>而这依然会产生问题，将导致了 C++ 中重载特性会发生混乱，考虑：</p>
+<pre><code>void foo(char *);
+void foo(int);
 </code></pre>
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/writing.html">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><pre><code class="bash">$ hexo server
+<p>对于这两个函数来说，如果 NULL 又被定义为了 0，那么foo(NULL);这个语句将会去调用foo(int)，从而导致代码违反直观。</p>
+<p>为了解决这个问题，C++11 引入了 nullptr 关键字，专门用来区分空指针、0。</p>
+<p>nullptr 的类型为 nullptr_t，能够隐式的转换为任何指针或成员指针的类型，也能和他们进行相等或者不等的比较。</p>
+<p>当需要使用 NULL 时候，养成直接使用 nullptr的习惯。</p>
+<h2 id="二、类型推导"><a href="#二、类型推导" class="headerlink" title="二、类型推导"></a>二、<strong>类型推导</strong></h2><p>在之前的 C++ 版本中，<strong>auto</strong> 关键字用来指明变量的存储类型，它和 static 关键字是相对的。auto 表示变量是自动存储的，这也是编译器的默认规则,这使得 <strong>auto</strong> 关键字的存在变得非常鸡肋。</p>
+<p>C++11 赋予了 <strong>auto</strong> 关键字新的含义，使用它来做自动类型推导。即使用了 <strong>auto</strong> 关键字以后，编译器会在编译期间自动推导出变量的类型。 </p>
+<h3 id="auto-关键字的基本用法"><a href="#auto-关键字的基本用法" class="headerlink" title="auto 关键字的基本用法"></a><strong>auto 关键字的基本用法</strong></h3><pre><code>auto name = value
 </code></pre>
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/server.html">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><pre><code class="bash">$ hexo generate
+<p><em><strong>auto</strong> 仅仅是一个占位符，在编译器期间它会被真正的类型所替代。或者说，C++ 中的变量必须是有明确类型的，只是这个类型是由编译器自己推导出来的。因此使用auto声明变量时必须初始化。</em></p>
+<h3 id="auto-与-const-结合的用法"><a href="#auto-与-const-结合的用法" class="headerlink" title="auto 与 const 结合的用法"></a><strong>auto 与 const 结合的用法</strong></h3><pre><code>int  x = 0;
+const  auto n = x;  //n 为 const int ，auto 被推导为 int
+auto f = n;      //f 为 const int，auto 被推导为 int（const 属性被抛弃）
+const auto &amp;r1 = x;  //r1 为 const int&amp; 类型，auto 被推导为 int
+auto &amp;r2 = r1;  //r1 为 const int&amp; 类型，auto 被推导为 const int 类型
 </code></pre>
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/generating.html">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><pre><code class="bash">$ hexo deploy
+<ul>
+<li>当类型不为引用时，auto 的推导结果将不保留表达式的 const 属性；</li>
+<li>当类型为引用时，auto 的推导结果将保留表达式的 const 属性。</li>
+</ul>
+<p>因为 auto 并不适用于所有的自动类型推导场景，在某些特殊情况下 auto 用起来非常不方便，甚至压根无法使用，所以 decltype 关键字也被引入到 C++11 中。</p>
+<h3 id="decltype-的基本用法"><a href="#decltype-的基本用法" class="headerlink" title="decltype 的基本用法"></a><strong>decltype 的基本用法</strong></h3><pre><code>decltype(exp) varname;
 </code></pre>
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
-
+<p>decltype 根据 exp 表达式推导出变量的类型</p>
+<pre><code>int a = 0;
+decltype(a) b = 1;  //b 被推导成了 int
+decltype(10.8) x = 5.5;  //x 被推导成了 double
+decltype(x + 100) y;  //y 被推导成了 double
+</code></pre>
+<h3 id="decltype-推导规则"><a href="#decltype-推导规则" class="headerlink" title="decltype 推导规则"></a><strong>decltype 推导规则</strong></h3><ul>
+<li>如果 exp 是一个不被括号( )包围的表达式，或者是一个类成员访问表达式，或者是一个单独的变量，那么 decltype(exp) 的类型就和 exp 一致，这是最普遍最常见的情况。</li>
+<li>如果 exp 是函数调用，那么 decltype(exp) 的类型就和函数返回值的类型一致。</li>
+<li>如果 exp 是一个左值，或者被括号( )包围，那么 decltype(exp) 的类型就是 exp 的引用；假设 exp 的类型为 T，那么 decltype(exp) 的类型就是 T&amp;。</li>
+</ul>
+<h2 id="三、区间迭代-基于范围的-for-循环"><a href="#三、区间迭代-基于范围的-for-循环" class="headerlink" title="三、区间迭代 - 基于范围的 for 循环"></a><strong>三、区间迭代 - 基于范围的 for 循环</strong></h2><p>最常用的 std::vector 遍历将从原来的样子：</p>
+<pre><code>std::vector&lt;int&gt; arr(5, 100);
+for(std::vector&lt;int&gt;::iterator i = arr.begin(); i != arr.end(); ++i) &#123;
+    std::cout &lt;&lt; *i &lt;&lt; std::endl;
+&#125;
+</code></pre>
+<p>变为了</p>
+<pre><code>for(auto i : arr) &#123;    
+    std::cout &lt;&lt; i &lt;&lt; std::endl;
+&#125;
+</code></pre>
+<h2 id="四、初始化列表"><a href="#四、初始化列表" class="headerlink" title="四、初始化列表"></a><strong>四、初始化列表</strong></h2>
             
         </div>
     </div>
@@ -192,7 +230,7 @@
         
         
     </div>
-    <a href="/2023/02/14/hello-world/" class="go-post">阅读全文</a>
+    <a href="/2023/02/14/C++/" class="go-post">阅读全文</a>
 </div>
 
 

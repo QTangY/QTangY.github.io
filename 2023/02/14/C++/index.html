@@ -146,7 +146,8 @@
     </div>
     
     <div class="content" v-pre>
-        <h1 id="C-11"><a href="#C-11" class="headerlink" title="C++11"></a>C++11</h1><h2 id="一、nullptr"><a href="#一、nullptr" class="headerlink" title="一、nullptr"></a>一、<strong>nullptr</strong></h2><p>nullptr 出现的目的是为了替代 NULL。</p>
+        <span id="more"></span>
+<h1 id="C-11"><a href="#C-11" class="headerlink" title="C++11"></a>C++11</h1><h2 id="一、nullptr"><a href="#一、nullptr" class="headerlink" title="一、nullptr"></a>一、<strong>nullptr</strong></h2><p>nullptr 出现的目的是为了替代 NULL。</p>
 <p>在某种意义上来说，传统 C++ 会把 NULL、0 视为同一种东西，这取决于编译器如何定义 NULL，有些编译器会将 NULL 定义为 ((void*)0)，有些则会直接将其定义为 0。</p>
 <p>C++ 不允许直接将 void * 隐式转换到其他类型，但如果 NULL 被定义为 ((void*)0)，那么当编译char *ch &#x3D; NULL;时，NULL 只好被定义为 0。</p>
 <p>而这依然会产生问题，将导致了 C++ 中重载特性会发生混乱，考虑：</p>

@@ -160,8 +160,30 @@ int listenfd = socket(PF_INET, SOCK_STREAM, 0);  //创建监听socket文件描�
 
 struct sockaddr_in address;// 创建监听socket的TCP/IP的IPV4 socket地址
 bzero(&amp;address, sizeof(address));
+/*
+sockaddr_in是系统封装的一个结构体，具体包含了成员变量：sin_family、sin_addr、sin_zero
+sin_family主要用来定义是哪种地址族
+sin_port主要用来保存端口号
+sin_addr主要用来保存IP地址信息
+sin_zero没有特殊含义
+*/
+address.sin_family = AF_INET;
 address.sin_family = AF_INET;
 
+/*
+htons的功能：将一个无符号短整型数值转换为网络字节序，即大端模式(big-endian)　　
+参数u_short hostshort: 16位无符号整数　
+ 返回值: TCP / IP网络字节顺序.
+htons 是把你机器上的整数转换成“网络字节序”， 网络字节序是 big-endian，也就是整数的高位字节存放在内存的低地址处。 而我们常用的 x86 CPU (intel, AMD) 电脑是 little-endian,也就是整数的低位字节放在内存的低字节处。
+举个例子：
+                假定你的port是　　0x1234,　　在网络字节序里 这个port放到内存中就应该显示成　　addr addr+1　　0x12 0x34　　而在x86电脑上，0x1234放到内存中实际是：　　addr addr+1　　0x34 0x12　htons 的用处就是把实际内存中的整数存放方式调整成“网络字节序”的方式。
+
+htonl的功能：将主机的无符号长整形数转换成网络字节顺序。
+hostlong：主机字节顺序表达的32位数。　　
+注释：本函数将一个32位数从主机字节顺序转换成网络字节顺序。　
+返回值：htonl()返回一个网络字节顺序的值。
+
+*/
 address.sin_addr.s_addr = htonl(INADDR_ANY);  // INADDR_ANY：将套接字绑定到所有可用的接口
 address.sin_port = htons(port);
 
@@ -252,7 +274,7 @@ for(int i = 0; i &lt; number; ++i) &#123;
 <p>Epoll对文件操作符的操作有两种模式：LT（电平触发）和ET（边缘触发），二者的区别在于当你调用epoll_wait的时候内核里面发生了什么：</p>
 <ul>
 <li>LT（电平触发）：类似select，LT会去遍历在epoll事件表中每个文件描述符，来观察是否有我们感兴趣的事件发生，如果有（触发了该文件描述符上的回调函数），epoll_wait就会以非阻塞的方式返回。若该epoll事件没有被处理完（没有返回EWOULDBLOCK），该事件还会被后续的epoll_wait再次触发。</li>
-<li>T（边缘触发）：ET在发现有我们感兴趣的事件发生后，立即返回，并且sleep这一事件的epoll_wait，不管该事件有没有结束。</li>
+<li>ET（边缘触发）：ET在发现有我们感兴趣的事件发生后，立即返回，并且sleep这一事件的epoll_wait，不管该事件有没有结束。</li>
 </ul>
 <p>在使用ET模式时，必须要保证该文件描述符是非阻塞的（确保在没有数据可读时，该文件描述符不会一直阻塞）；并且每次调用read和write的时候都必须等到它们返回EWOULDBLOCK（确保所有数据都已读完或写完）。</p>
 <h2 id="4-Web服务器如何处理以及响应接收到的HTTP请求报文呢"><a href="#4-Web服务器如何处理以及响应接收到的HTTP请求报文呢" class="headerlink" title="4. Web服务器如何处理以及响应接收到的HTTP请求报文呢?"></a><strong>4. Web服务器如何处理以及响应接收到的HTTP请求报文呢?</strong></h2><p>该项目使用线程池（半同步半反应堆模式）并发处理用户请求，主线程负责读写，工作线程（线程池中的线程）负责处理逻辑（HTTP请求报文的解析等等）。通过之前的代码，我们将listenfd上到达的connection通过 accept()接收，并返回一个新的socket文件描述符connfd用于和用户通信，并对用户请求返回响应，同时将这个connfd注册到内核事件表中，等用户发来请求报文。这个过程是：通过epoll_wait发现这个connfd上有可读事件了（EPOLLIN），主线程就将这个HTTP的请求报文读进这个连接socket的读缓存中users[sockfd].read()，然后将该任务对象（指针）插入线程池的请求队列中pool-&gt;append(users + sockfd);，线程池的实现还需要依靠锁机制以及信号量机制来实现线程同步，保证操作的原子性。<br>在线程池部分做几点解释，然后大家去看代码的时候就更容易看懂了：</p>

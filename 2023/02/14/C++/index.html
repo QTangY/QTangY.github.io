@@ -198,7 +198,329 @@ for(std::vector&lt;int&gt;::iterator i = arr.begin(); i != arr.end(); ++i) &#123
     std::cout &lt;&lt; i &lt;&lt; std::endl;
 &#125;
 </code></pre>
-<h2 id="四、初始化列表"><a href="#四、初始化列表" class="headerlink" title="四、初始化列表"></a><strong>四、初始化列表</strong></h2>
+<h2 id="四、初始化列表"><a href="#四、初始化列表" class="headerlink" title="四、初始化列表"></a><strong>四、初始化列表</strong></h2><p>在传统 C++ 中，不同的对象有着不同的初始化方法，例如普通数组、POD （plain old data，没有构造、析构和虚函数的类或结构体）类型都可以使用 {} 进行初始化，也就是我们所说的初始化列表。而对于类对象的初始化，要么需要通过拷贝构造函数、要么就需要使用 () 进行。这些不同方法都针对各自对象。在传统C++中可以使用初始化列表如下</p>
+<p>为了统一初始化方式，并且让初始化行为具有确定的效果，C++11 中提出了列表初始化（List-initialization）的概念。<br>C++11 首先把初始化列表的概念绑定到了类型上，并将其称之为 initializer_list，允许构造函数或其他函数像参数一样使用初始化列表，这就为类对象的初始化与普通数组和 POD 的初始化方法提供了统一的桥梁。可以拿个类模板 initializer_list 作为构造函数的参数，则初始化列表就智能用于构造该函数。值得注意的是列表中的元素必须是同一种类型或者可以转化为同一种类型。</p>
+<pre><code>class Foo
+&#123;
+public:
+    Foo(int) &#123;&#125;
+private:
+    Foo(const Foo &amp;);
+&#125;;
+
+int main(void)
+&#123;
+    // 调用Foo(int)构造函数初始化（c++98编译通过 c++11编译通过）
+    Foo a1(123);
+    // 报错：Foo的拷贝构造函数声明为私有的，该处的初始化方式是隐式调用Foo(int)构造函数生成一个临时的匿名对象，再调用拷贝构造函数完成初始化
+    Foo a2 = 123;
+    
+    // 列表初始化（c++98编译失败 c++11编译通过）
+    Foo a3 = &#123; 123 &#125;;
+    // 列表初始化（c++98编译通过 c++11编译通过）
+    Foo a4 &#123; 123 &#125;;
+    
+    // 列表初始化（++98编译通过 c++11编译通过）
+    int a5 = &#123; 3 &#125;;
+    // 列表初始化（++98编译失败 c++11编译通过）
+    int a6 &#123; 3 &#125;;
+    
+    return 0;
+&#125;
+</code></pre>
+<p>同时列表初始化方法也适用于用new操作等圆括号进行初始化的地方，如下：</p>
+<pre><code>int* a = new int &#123; 123 &#125;;
+double b = double &#123; 12.12 &#125;;
+int* arr = new int[3] &#123; 1, 2, 3 &#125;;
+</code></pre>
+<h2 id="五-模板增强"><a href="#五-模板增强" class="headerlink" title="五. 模板增强"></a><strong>五. 模板增强</strong></h2><h3 id="5-1-外部模板"><a href="#5-1-外部模板" class="headerlink" title="5.1 外部模板"></a><strong>5.1 外部模板</strong></h3><p>传统 C++ 中，模板只有在使用时才会被编译器实例化。只要在每个编译单元（文件）中编译的代码中遇到了被完整定义的模板，都会实例化。这就产生了重复实例化而导致的编译时间的增加。并且，我们没有办法通知编译器不要触发模板实例化。</p>
+<p>C++11 引入了外部模板，扩充了原来的强制编译器在特定位置实例化模板的语法，使得能够显式的告诉编译器何时进行模板的实例化：</p>
+<pre><code>template class std::vector&lt;bool&gt;;            // 强行实例化
+extern template class std::vector&lt;double&gt;;  // 不在该编译文件中实例化模板
+</code></pre>
+<h3 id="5-3-类型别名模板"><a href="#5-3-类型别名模板" class="headerlink" title="5.3 类型别名模板"></a><strong>5.3 类型别名模板</strong></h3><p>在传统 C++ 中，typedef 可以为类型定义一个新的名称，但是却没有办法为模板定义一个新的名称。因为，模板不是类型。</p>
+<p>C++11 使用 using 引入了下面这种形式的写法，并且同时支持对传统 typedef 相同的功效：</p>
+<pre><code>template &lt;typename T&gt;
+using NewType = SuckType&lt;int, T, 1&gt;;    // 合法
+</code></pre>
+<h3 id="5-4-默认模板参数"><a href="#5-4-默认模板参数" class="headerlink" title="5.4 默认模板参数"></a><strong>5.4 默认模板参数</strong></h3><pre><code>template&lt;typename T = int, typename U = int&gt;
+auto add(T x, U y) -&gt; decltype(x+y) &#123;
+    return x+y;
+&#125;
+</code></pre>
+<h2 id="六-构造函数"><a href="#六-构造函数" class="headerlink" title="六. 构造函数"></a><strong>六. 构造函数</strong></h2><h3 id="6-1-委托构造"><a href="#6-1-委托构造" class="headerlink" title="6.1 委托构造"></a><strong>6.1 委托构造</strong></h3><p>C++11 引入了委托构造的概念，这使得构造函数可以在同一个类中一个构造函数调用另一个构造函数，从而达到简化代码的目的：</p>
+<pre><code>class Base &#123;
+public:
+    int value1;
+    int value2;
+    Base() &#123;
+        value1 = 1;
+    &#125;
+    Base(int value) : Base() &#123;  // 委托 Base() 构造函数
+        value2 = 2;
+    &#125;
+&#125;;
+</code></pre>
+<h3 id="6-2-继承构造"><a href="#6-2-继承构造" class="headerlink" title="6.2 继承构造"></a><strong>6.2 继承构造</strong></h3><p>在继承体系中，如果派生类想要使用基类的构造函数，需要在构造函数中显式声明。<br>假若基类拥有为数众多的不同版本的构造函数，这样，在派生类中得写很多对应的“透传”构造函数。如下：</p>
+<pre><code>struct A
+&#123;
+  A(int i) &#123;&#125;
+  A(double d,int i)&#123;&#125;
+  A(float f,int i,const char* c)&#123;&#125;
+  // ...等等系列的构造函数版本
+&#125;；
+    
+struct B:A
+&#123;
+  using A::A;
+  // 关于基类各构造函数的继承一句话搞定
+  // ......
+&#125;；
+</code></pre>
+<p>如果一个继承构造函数不被相关的代码使用，编译器不会为之产生真正的函数代码，这样比透传基类各种构造函数更加节省目标代码空间。</p>
+<h2 id="七-Lambda表达式"><a href="#七-Lambda表达式" class="headerlink" title="七. Lambda表达式"></a><strong>七. Lambda表达式</strong></h2><p>C++11 新标准新增的一项重要功能就是 lambda 表达式，所谓 Lambda 表达式实际上就是提供了一个类似匿名函数的特性，而匿名函数则是在需要一个函数，但是又不想费力去命名一个函数的情况下去使用的。</p>
+<p>Lambda 的组成结构与函数很相似，它拥有一个返回类型，一个形参列表，一个函数体。Lambda 也可以定义在函数内部。它的组成结构如下：</p>
+<pre><code>[capture list] (parameter list) option -&gt; return type &#123; function body
+</code></pre>
+<ul>
+<li><p>capture list 表示捕获列表，也就是 lambda 所在函数中的局部变量的列表，如果没有，则这个列表为空。 </p>
+<ul>
+<li><p>[] 不捕获任何变量。</p>
+</li>
+<li><p>[&amp;] 捕获外部作用域中所有变量，并作为引用在函数体中使用（按引用捕获）。</p>
+</li>
+<li><p>[&#x3D;] 捕获外部作用域中所有变量，并作为副本在函数体中使用(按值捕获)。注意值捕获的前提是变量可以拷贝，且被捕获的变量在 lambda 表达式被创建时拷贝，而非调用时才拷贝。如果希望 lambda 表达式在调用时能即时访问外部变量，我们应当使用引用方式捕获。</p>
+</li>
+</ul>
+</li>
+<li><p>Parameter list 为形参列表。（选填）</p>
+</li>
+<li><p>option 是函数选项；可以填 mutable,exception,attribute。（选填）</p>
+<ul>
+<li>mutable说明lambda表达式体内的代码可以修改被捕获的变量，并且可以访问被捕获的对象的non-const方法。</li>
+<li>exception说明lambda表达式是否抛出异常以及何种异常。</li>
+<li>attribute用来声明属性。</li>
+</ul>
+</li>
+<li><p>return type 表示该 lambda 的返回类型。（选填）</p>
+</li>
+<li><p>Function body 是函数体，这些和函数表示是一样的。</p>
+</li>
+</ul>
+<p>虽然按值捕获的变量值均复制一份存储在lambda表达式变量中，修改他们也并不会真正影响到外部，但我们却仍然无法修改它们。如果希望去修改按值捕获的外部变量，需要显示指明 lambda 表达式为 mutable。被 mutable 修饰的 lambda 表达式就算没有参数也要写明参数列表。</p>
+<p>原因：lambda 表达式可以说是就地定义仿函数闭包的“语法糖”。它的捕获列表捕获住的任何外部变量，最终会变为闭包类型的成员变量。按照 C++ 标准，lambda 表达式的operator() 默认是 const 的，一个 const 成员函数是无法修改成员变量的值的。而 mutable 的作用，就在于取消 operator() 的 const</p>
+<p><strong>lambda表达式的大致原理：每当你定义一个 lambda 表达式后，编译器会自动生成一个匿名类（这个类重载了()运算符），我们称为闭包类型（closure type）。那么在运行时，这个 lambda 表达式就会返回一个匿名的闭包实例，是一个右值。所以，我们上面的 lambda 表达式的结果就是一个个闭包。对于复制传值捕捉方式，类中会相应添加对应类型的非静态数据成员。在运行时，会用复制的值初始化这些成员变量，从而生成闭包。对于引用捕获方式，无论是否标记 mutable，都可以在 lambda 表达式中修改捕获的值。至于闭包类中是否有对应成员，C++ 标准中给出的答案是：不清楚的，与具体实现有关。</strong></p>
+<h2 id="八-新增容器"><a href="#八-新增容器" class="headerlink" title="八. 新增容器"></a><strong>八. 新增容器</strong></h2><h3 id="8-1-std-array"><a href="#8-1-std-array" class="headerlink" title="8.1 std::array"></a><strong>8.1 std::array</strong></h3><p>std::array 保存在栈内存中，相比堆内存中的 std::vector，我们能够灵活的访问这里面的元素，从而获得更高的性能。</p>
+<p>std::array 会在编译时创建一个固定大小的数组，std::array 不能够被隐式的转换成指针，使用 std::array只需指定其类型和大小即可：</p>
+<pre><code>std::array&lt;int, 4&gt; arr= &#123;1,2,3,4&#125;;
+
+int len = 4;
+std::array&lt;int, len&gt; arr = &#123;1,2,3,4&#125;; // 非法, 数组大小参数必须是常量表达式1234
+</code></pre>
+<p>当我们开始用上了 std::array 时，难免会遇到要将其兼容 C 风格的接口，这里有三种做法：</p>
+<pre><code>void foo(int *p, int len) &#123;
+    return;
+&#125;
+
+std::array&lt;int 4&gt; arr = &#123;1,2,3,4&#125;;
+
+// C 风格接口传参
+// foo(arr, arr.size());           // 非法, 无法隐式转换
+foo(&amp;arr[0], arr.size());
+foo(arr.data(), arr.size());
+
+// 使用 `std::sort`
+std::sort(arr.begin(), arr.end());12345678910111213
+</code></pre>
+<h3 id="8-2-std-forward-list"><a href="#8-2-std-forward-list" class="headerlink" title="8.2 std::forward_list"></a><strong>8.2 std::forward_list</strong></h3><p>std::forward_list 是一个列表容器，使用方法和 std::list 基本类似。<br>和 std::list 的双向链表的实现不同，std::forward_list 使用单向链表进行实现，提供了 O(1) 复杂度的元素插入，不支持快速随机访问（这也是链表的特点），也是标准库容器中唯一一个不提供 size() 方法的容器。当不需要双向迭代时，具有比 std::list 更高的空间利用率。</p>
+<h3 id="8-3-无序容器"><a href="#8-3-无序容器" class="headerlink" title="8.3 无序容器"></a><strong>8.3 无序容器</strong></h3><p>C++11 引入了两组无序容器： </p>
+<p>std::unordered_set&#x2F;std::unordered_multiset</p>
+<p>std::unordered_map&#x2F;std::unordered_multimap。</p>
+<p>无序容器中的元素是不进行排序的，内部通过 Hash 表实现，插入和搜索元素的平均复杂度为 O(constant)。</p>
+<h3 id="8-4-元组-std-tuple"><a href="#8-4-元组-std-tuple" class="headerlink" title="8.4 元组 std::tuple"></a><strong>8.4 元组 std::tuple</strong></h3><p>元组的使用有三个核心的函数：</p>
+<ul>
+<li><p>std::make_tuple: 构造元组</p>
+</li>
+<li><p>std::get: 获得元组某个位置的值</p>
+</li>
+<li><p>std::tie: 元组拆包</p>
+</li>
+</ul>
+<pre><code>#include &lt;tuple&gt;
+#include &lt;iostream&gt;
+
+auto get_student(int id)
+&#123;
+    // 返回类型被推断为 std::tuple&lt;double, char, std::string&gt;
+    if (id == 0)
+        return std::make_tuple(3.8, &#39;A&#39;, &quot;张三&quot;);
+    if (id == 1)
+        return std::make_tuple(2.9, &#39;C&#39;, &quot;李四&quot;);
+    if (id == 2)
+        return std::make_tuple(1.7, &#39;D&#39;, &quot;王五&quot;);
+    return std::make_tuple(0.0, &#39;D&#39;, &quot;null&quot;);   
+    // 如果只写 0 会出现推断错误, 编译失败
+&#125;
+
+int main()
+&#123;
+    auto student = get_student(0);
+    std::cout &lt;&lt; &quot;ID: 0, &quot;
+    &lt;&lt; &quot;GPA: &quot; &lt;&lt; std::get&lt;0&gt;(student) &lt;&lt; &quot;, &quot;
+    &lt;&lt; &quot;成绩: &quot; &lt;&lt; std::get&lt;1&gt;(student) &lt;&lt; &quot;, &quot;
+    &lt;&lt; &quot;姓名: &quot; &lt;&lt; std::get&lt;2&gt;(student) &lt;&lt; &#39;\n&#39;;
+
+    double gpa;
+    char grade;
+    std::string name;
+
+    // 元组进行拆包
+    std::tie(gpa, grade, name) = get_student(1);
+    std::cout &lt;&lt; &quot;ID: 1, &quot;
+    &lt;&lt; &quot;GPA: &quot; &lt;&lt; gpa &lt;&lt; &quot;, &quot;
+    &lt;&lt; &quot;成绩: &quot; &lt;&lt; grade &lt;&lt; &quot;, &quot;
+    &lt;&lt; &quot;姓名: &quot; &lt;&lt; name &lt;&lt; &#39;\n&#39;;
+&#125;
+</code></pre>
+<h3 id="九-正则表达式"><a href="#九-正则表达式" class="headerlink" title="九. 正则表达式"></a><strong>九. 正则表达式</strong></h3><p>C++11 提供了正则表达式库，用于操作 std::string 对象，对模式 std::regex (本质是 std::basic_regex)进行初始化，通过 std::regex_match 进行匹配，从而产生 std::smatch （本质是 std::match_results 对象）。</p>
+<p>我们通过一个简单的例子来简单介绍这个库的使用。考虑下面的正则表达式：</p>
+<p>[a-z]+.txt: 在这个正则表达式中, [a-z] 表示匹配一个小写字母, + 可以使前面的表达式匹配多次，因此 [a-z]+ 能够匹配一个及以上小写字母组成的字符串。在正则表达式中一个 . 表示匹配任意字符，而 . 转义后则表示匹配字符 . ，最后的 txt 表示严格匹配 txt 这三个字母。因此这个正则表达式的所要匹配的内容就是文件名为纯小写字母的文本文件。</p>
+<p>std::regex_match用于匹配字符串和正则表达式，有很多不同的重载形式。最简单的一个形式就是传入std::string以及一个std::regex进行匹配，当匹配成功时，会返回 true，否则返回 false。例如：</p>
+<pre><code>#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;regex&gt;
+
+int main() &#123;
+    std::string fnames[] = &#123;&quot;foo.txt&quot;, &quot;bar.txt&quot;, &quot;test&quot;, &quot;a0.txt&quot;, &quot;AAA.txt&quot;&#125;;
+    // 在 C++ 中 `\` 会被作为字符串内的转义符，为使 `\.` 作为正则表达式传递进去生效，需要对 `\` 进行二次转义，从而有 `\\.`
+    std::regex txt_regex(&quot;[a-z]+\\.txt&quot;);
+    for (const auto &amp;fname: fnames)
+        std::cout &lt;&lt; fname &lt;&lt; &quot;: &quot; &lt;&lt; std::regex_match(fname, txt_regex) &lt;&lt; std::endl;
+&#125;
+</code></pre>
+<p>另一种常用的形式就是依次传入std::string&#x2F;std::smatch&#x2F;std::regex三个参数，其中 std::smatch 的本质其实是 std::match_results，在标准库中， std::smatch 被定义为了 std::match_results，也就是一个子串迭代器类型的 match_results。使用 std::smatch 可以方便的对匹配的结果进行获取，例如：</p>
+<pre><code>std::regex base_regex(&quot;([a-z]+)\\.txt&quot;);
+std::smatch base_match;
+for(const auto &amp;fname: fnames) &#123;
+    if (std::regex_match(fname, base_match, base_regex)) &#123;
+        // sub_match 的第一个元素匹配整个字符串
+        // sub_match 的第二个元素匹配了第一个括号表达式
+        if (base_match.size() == 2) &#123;
+            std::string base = base_match[1].str();
+            std::cout &lt;&lt; &quot;sub-match[0]: &quot; &lt;&lt; base_match[0].str() &lt;&lt; std::endl;
+            std::cout &lt;&lt; fname &lt;&lt; &quot; sub-match[1]: &quot; &lt;&lt; base &lt;&lt; std::endl;
+        &#125;
+    &#125;
+&#125;
+</code></pre>
+<h2 id="十-语言级线程支持"><a href="#十-语言级线程支持" class="headerlink" title="十. 语言级线程支持"></a><strong>十. 语言级线程支持</strong></h2><ul>
+<li><p>std::thread</p>
+</li>
+<li><p>std::mutex&#x2F;std::unique_lock</p>
+</li>
+<li><p>std::future&#x2F;std::packaged_task</p>
+</li>
+<li><p>std::condition_variable</p>
+</li>
+</ul>
+<p>代码编译需要使用 -pthread 选项。</p>
+<h2 id="十一-右值引用和move语义"><a href="#十一-右值引用和move语义" class="headerlink" title="十一. 右值引用和move语义"></a><strong>十一. 右值引用和move语义</strong></h2><p>c++11 引入了右值引用和移动语义，为了避免无谓的复制，提高程序性能。</p>
+<h3 id="左值、右值"><a href="#左值、右值" class="headerlink" title="左值、右值"></a><strong>左值、右值</strong></h3><p>C++ 中所有的值都必然属于左值、右值二者之一。左值是指表达式结束后依然存在的持久化对象，右值是指表达式结束时就不再存在的临时对象。所有的具名变量或者对象都是左值，而右值不具名。很难得到左值和右值的真正定义，但是有一个可以区分左值和右值的便捷方法：看能不能对表达式取地址，如果能，则为左值，否则为右值。</p>
+<h3 id="左值引用、右值引用"><a href="#左值引用、右值引用" class="headerlink" title="左值引用、右值引用"></a><strong>左值引用、右值引用</strong></h3><p>C++98 的引用很常见了，就是给变量取了个别名，在 C++11 中，因为增加了右值引用(rvalue reference)的概念，所以 C++98 中的引用都称为了左值引用(lvalue reference)。</p>
+<p>C++11 中的右值引用使用的符号是&amp;&amp;，如：</p>
+<pre><code>int&amp;&amp; a = 1; // 实质上就是将不具名(匿名)变量取了个别名
+int b = 1;
+int &amp;&amp; c = b; // 编译错误！ 不能将一个左值复制给一个右值引用
+
+class A &#123;
+  public:
+    int a;
+&#125;;
+A getTemp()
+&#123;
+    return A();
+&#125;
+
+A &amp;&amp; a = getTemp();   //getTemp()的返回值是右值（临时变量）
+</code></pre>
+<p><em>注意：这里a的类型是右值引用类型(int &amp;&amp;)，但是如果从左值和右值的角度区分它，它实际上是个左值。因为可以对它取地址，而且它还有名字，是一个已经命名的右值。<br>所以，左值引用只能绑定左值，右值引用只能绑定右值，如果绑定的不对，编译就会失败。但是，常量左值引用却是个奇葩，它可以算是一个“万能”的引用类型，它可以绑定非常量左值、常量左值、右值，而且在绑定右值的时候，常量左值引用还可以像右值引用一样将右值的生命期延长，缺点是，只能读不能改.</em></p>
+<h3 id="加入右值引用的目的"><a href="#加入右值引用的目的" class="headerlink" title="加入右值引用的目的"></a><strong>加入右值引用的目的</strong></h3><p>右值引用的目的主要是为了是减少内存拷贝，优化性能。</p>
+<pre><code>MyString&amp; operator=(MyString&amp;&amp; other)
+&#123;
+    cout &lt;&lt; &quot;MyString&amp; operator=(const MyString&amp;&amp; other)&quot; &lt;&lt; endl;
+    if (this != &amp;other)
+    &#123;
+        m_nLen = other.m_nLen;
+        m_pData = other.m_pData;
+        other.m_pData = NULL;
+    &#125;
+
+    return *this;
+&#125;
+</code></pre>
+<p>我们没有深度拷贝堆内存中的数据，而是仅仅复制了指针，并把源对象 other 的指针置空。事实上，我们“偷取”了属于源对象 other 的内存数据。由于源对象 other 是一个右值，不会再被使用，因此客户并不会觉察到源对象被改变了。在这里，我们并没有真正的复制，所以我们把这个构造函数叫做“转移构造函数”（move constructor），他的工作就是把资源从一个对象转移到另一个对象，而不是复制他们，这样就能避免内存拷贝带来的额外性能消耗。</p>
+<h2 id="十二-std-bind-函数"><a href="#十二-std-bind-函数" class="headerlink" title="十二. std::bind 函数"></a><strong>十二. std::bind 函数</strong></h2><p>C++11 引入了新的标准库函数 bind，std::bind 函数定义在头文件 functional 中，是一个函数模板，它就像一个函数适配器，接受一个可调用对象（callable object），生成一个新的可调用对象来“适应”原对象的参数列表。</p>
+<p>std::bind 将可调用对象与其参数一起进行绑定，绑定后的结果可以使用 std::function 保存。std::bind 主要有以下两个作用：</p>
+<ul>
+<li>将可调用对象和其参数绑定成一个防函数；</li>
+<li>只绑定部分参数，减少可调用对象传入的参数。</li>
+</ul>
+<p>std::bind 函数有两种函数原型，定义如下：</p>
+<pre><code>template &lt;class F, class... Args&gt;
+/* unspecified */ bind (Fn&amp;&amp; f, Args&amp;&amp;... args);
+
+template &lt;class Ret, class F, class... Args&gt;
+/* unspecified */ bind (Fn&amp;&amp; f, Args&amp;&amp;... args);
+</code></pre>
+<h3 id="std-bind绑定普通函数"><a href="#std-bind绑定普通函数" class="headerlink" title="std::bind绑定普通函数"></a><strong>std::bind绑定普通函数</strong></h3><pre><code>double my_divide (double x, double y) &#123;return x/y;&#125;
+auto fn_half = std::bind (my_divide,_1,2);  
+std::cout &lt;&lt; fn_half(10) &lt;&lt; &#39;\n&#39;; 
+</code></pre>
+<ul>
+<li>bind 的第一个参数是函数名，普通函数做实参时，会隐式转换成函数指针。因此std::bind (my_divide,_1,2)等价于std::bind (&amp;my_divide,_1,2)；</li>
+<li>_1表示占位符，位于 <functional> 中：std::placeholders::_1;</li>
+</ul>
+<h3 id="std-bind绑定一个成员函数"><a href="#std-bind绑定一个成员函数" class="headerlink" title="std::bind绑定一个成员函数"></a><strong>std::bind绑定一个成员函数</strong></h3><pre><code>struct Foo &#123;
+    void print_sum(int n1, int n2)
+    &#123;
+        std::cout &lt;&lt; n1+n2 &lt;&lt; &#39;\n&#39;;
+    &#125;
+    int data = 10;
+&#125;;
+
+int main() 
+&#123;
+    Foo foo;
+    auto f = std::bind(&amp;Foo::print_sum, &amp;foo, 95, std::placeholders::_1);
+    f(5); // 100
+&#125;
+</code></pre>
+<ul>
+<li>bind 绑定类成员函数时，第一个参数表示对象的成员函数的指针，第二个参数表示对象的地址。</li>
+<li>必须显示的指定 &amp;Foo::print_sum，因为编译器不会将对象的成员函数隐式转换成函数指针，所以必须在 Foo::print_sum 前添加 &amp;；</li>
+<li>使用对象成员函数的指针时，必须要知道该指针属于哪个对象，因此第二个参数为对象的地址 &amp;foo；</li>
+</ul>
+<h2 id="十三-std-function-类模板"><a href="#十三-std-function-类模板" class="headerlink" title="十三. std :: function 类模板"></a><strong>十三. std :: function 类模板</strong></h2><p>类模板 std :: function 是一个通用的多态函数包装器。 std :: function 的实例可以存储，复制和调用任何可调用的目标 ：包括函数，lambda 表达式，绑定表达式或其他函数对象，以及指向成员函数和指向数据成员的指针。当 std::function 对象未包裹任何实际的可调用元素，调用该 std::function 对象将抛出 std::bad_function_call 异常。</p>
+<p>原型如下：</p>
+<pre><code>template&lt; class R, class... Args &gt;
+class function&lt;R(Args...)&gt;;
+</code></pre>
+<p>例如：std::function&lt;int(int,int)&gt; func;则 function 类的实例 func 可以指向返回值为 int 型，有两个形参都为 int 型的函数。</p>
+<pre><code>#include &lt;functional&gt;
+#include &lt;iostream&gt;
+int f(int a, int b)
+&#123;
+  return a+b;
+&#125;
+int main()
+&#123;
+    std::function&lt;int(int, int)&gt;func = f;
+    cout&lt;&lt;f(1, 2)&lt;&lt;endl; // 3
+    system(&quot;pause&quot;);
+    return 0;
+&#125;
+</code></pre>
+
     </div>
     
     
